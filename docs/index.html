@@ -1,0 +1,426 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>钟澄文献检索方法论</title>
+<meta name="description" content="把钟澄《科研论》的文献检索经验做成一个 Claude Code skill：概念拆分到最小单元、万能检索式、小步进实测、鲸吞法分组、查漏与钓鱼法。">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📖</text></svg>">
+<style>
+  :root{
+    --paper:#faf7f2;
+    --paper-2:#f2ece3;
+    --card:#fffdfa;
+    --ink:#1c1917;
+    --ink-2:#44403c;
+    --ink-3:#78716c;
+    --line:#e3dcd0;
+    --line-2:#d3c9b8;
+    --cinnabar:#9c2b1f;
+    --cinnabar-soft:#c4553f;
+    --moss:#3f5d4c;
+    --gold:#a8791f;
+    --radius:10px;
+    --mono:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei","Source Han Sans SC",sans-serif;
+    --serif:"Songti SC","Source Han Serif SC","Noto Serif CJK SC",SimSun,Georgia,serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{
+      --paper:#161513;
+      --paper-2:#1e1c19;
+      --card:#211f1c;
+      --ink:#ece7de;
+      --ink-2:#c4bdb2;
+      --ink-3:#928a7e;
+      --line:#332f2a;
+      --line-2:#463f38;
+      --cinnabar:#e0705c;
+      --cinnabar-soft:#f08972;
+      --moss:#8fb89f;
+      --gold:#d9a94a;
+    }
+  }
+  *{box-sizing:border-box}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:16px;line-height:1.75;
+    letter-spacing:.01em;
+  }
+  .wrap{max-width:820px;margin:0 auto;padding:0 20px}
+  a{color:var(--cinnabar);text-decoration:none;border-bottom:1px solid color-mix(in srgb,var(--cinnabar) 35%,transparent)}
+  a:hover{border-bottom-color:var(--cinnabar)}
+  code{font-family:var(--mono);font-size:.88em;background:var(--paper-2);padding:.12em .38em;border-radius:4px;border:1px solid var(--line)}
+
+  /* ── hero ── */
+  header.hero{padding:72px 0 40px;border-bottom:1px solid var(--line)}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3);margin:0 0 18px}
+  h1{font-family:var(--serif);font-size:clamp(30px,6vw,46px);line-height:1.25;margin:0 0 6px;font-weight:600;letter-spacing:.02em}
+  .sub{font-family:var(--serif);font-size:clamp(16px,2.6vw,19px);color:var(--ink-2);margin:0 0 26px;font-weight:400}
+  .lede{font-size:17px;color:var(--ink-2);max-width:62ch;margin:0 0 30px}
+  .lede strong{color:var(--ink);font-weight:600}
+  .cta{display:flex;flex-wrap:wrap;gap:10px}
+  .btn{display:inline-block;padding:9px 18px;border-radius:999px;font-size:14px;font-weight:500;border:1px solid var(--line-2);color:var(--ink);background:var(--card);border-bottom:1px solid var(--line-2)}
+  .btn:hover{border-color:var(--cinnabar);color:var(--cinnabar)}
+  .btn.primary{background:var(--cinnabar);border-color:var(--cinnabar);color:#fff}
+  .btn.primary:hover{background:var(--cinnabar-soft);border-color:var(--cinnabar-soft);color:#fff}
+
+  /* ── sections ── */
+  section{padding:46px 0;border-bottom:1px solid var(--line)}
+  section:last-of-type{border-bottom:0}
+  h2{font-family:var(--serif);font-size:24px;margin:0 0 8px;font-weight:600;letter-spacing:.02em}
+  h2 .num{font-family:var(--mono);font-size:13px;color:var(--cinnabar);margin-right:10px;vertical-align:middle}
+  .note{color:var(--ink-3);font-size:14px;margin:0 0 24px}
+
+  /* ── formula diagram ── */
+  .formula{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:26px 22px;overflow-x:auto}
+  .frow{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;min-width:max-content}
+  .fgroup{border:2px solid var(--line-2);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:6px;background:var(--paper)}
+  .fterm{font-family:var(--mono);font-size:14px;padding:5px 11px;border-radius:6px;background:var(--paper-2);border:1px solid var(--line-2);white-space:nowrap}
+  .fterm.a{background:color-mix(in srgb,var(--cinnabar) 12%,var(--paper));border-color:color-mix(in srgb,var(--cinnabar) 40%,transparent)}
+  .fterm.b{background:color-mix(in srgb,var(--moss) 14%,var(--paper));border-color:color-mix(in srgb,var(--moss) 40%,transparent)}
+  .op{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--ink-3);flex:none}
+  .op.or{color:var(--cinnabar)}
+  .op.and{color:var(--moss)}
+  .brace{font-family:var(--mono);font-size:26px;color:var(--line-2);line-height:1;flex:none}
+  .legend{display:flex;gap:22px;flex-wrap:wrap;margin-top:18px;font-size:13px;color:var(--ink-3)}
+  .legend b{font-weight:600}
+  .legend .or{color:var(--cinnabar)}
+  .legend .and{color:var(--moss)}
+
+  /* ── principle cards ── */
+  .grid{display:grid;gap:14px}
+  .grid.two{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+  .pcard{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px 20px}
+  .pcard h3{font-family:var(--serif);font-size:17px;margin:0 0 6px;font-weight:600}
+  .pcard h3 .k{font-family:var(--mono);font-size:12px;color:var(--cinnabar);margin-right:8px}
+  .pcard p{margin:0;font-size:14.5px;color:var(--ink-2);line-height:1.7}
+
+  /* ── table ── */
+  table{width:100%;border-collapse:collapse;font-size:14.5px;margin:0}
+  th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-weight:600;font-size:13px;color:var(--ink-3);letter-spacing:.04em;font-family:var(--mono);text-transform:uppercase}
+  td:first-child{color:var(--ink)}
+  td.num{font-family:var(--mono);color:var(--cinnabar);white-space:nowrap;font-weight:600}
+  tbody tr:last-child td{border-bottom:0}
+  .tblwrap{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+
+  /* ── rules ── */
+  ol.rules{counter-reset:r;list-style:none;padding:0;margin:0}
+  ol.rules li{counter-increment:r;position:relative;padding:0 0 14px 42px;font-size:15px;color:var(--ink-2);line-height:1.7}
+  ol.rules li::before{content:counter(r);position:absolute;left:0;top:1px;width:26px;height:26px;border-radius:50%;background:color-mix(in srgb,var(--cinnabar) 12%,var(--paper));border:1px solid color-mix(in srgb,var(--cinnabar) 35%,transparent);color:var(--cinnabar);font-family:var(--mono);font-size:12px;display:flex;align-items:center;justify-content:center;font-weight:700}
+  ol.rules li b{color:var(--ink);font-weight:600}
+
+  /* ── files ── */
+  .file{display:block;background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:15px 18px;border-bottom:1px solid var(--line);color:var(--ink)}
+  .file:hover{border-color:var(--cinnabar);border-bottom:1px solid var(--cinnabar)}
+  .file .fn{font-family:var(--mono);font-size:13.5px;color:var(--cinnabar);font-weight:600;display:block;margin-bottom:3px}
+  .file .fd{font-size:14px;color:var(--ink-2);line-height:1.6}
+
+  /* ── evidence ── */
+  .scoreboard{display:grid;grid-template-columns:1fr auto 1fr;gap:14px;align-items:center;margin:0 0 20px}
+  .score{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;text-align:center}
+  .score .big{font-family:var(--serif);font-size:34px;font-weight:600;line-height:1.1;display:block}
+  .score.red .big{color:var(--ink-3)}
+  .score.green .big{color:var(--moss)}
+  .score .lbl{font-size:13px;color:var(--ink-3);margin-top:4px;display:block}
+  .arrow{font-family:var(--mono);color:var(--ink-3);font-size:20px}
+
+  blockquote{margin:0;padding:14px 20px;border-left:3px solid var(--cinnabar);background:color-mix(in srgb,var(--cinnabar) 5%,transparent);border-radius:0 var(--radius) var(--radius) 0;font-family:var(--serif);font-size:15.5px;color:var(--ink-2);line-height:1.8}
+  blockquote p{margin:0}
+
+  pre{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;overflow-x:auto;font-family:var(--mono);font-size:13.5px;line-height:1.7;margin:0}
+  pre .c{color:var(--ink-3)}
+  pre .k{color:var(--cinnabar);font-weight:600}
+  pre .s{color:var(--moss)}
+
+  footer{padding:36px 0 64px;color:var(--ink-3);font-size:13.5px;border-top:1px solid var(--line)}
+  footer p{margin:0 0 6px}
+
+  @media (max-width:600px){
+    header.hero{padding:52px 0 32px}
+    section{padding:36px 0}
+    .scoreboard{grid-template-columns:1fr;gap:10px}
+    .arrow{transform:rotate(90deg);text-align:center}
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <p class="eyebrow">Claude Code Skill · 文献检索</p>
+    <h1>钟澄文献检索方法论</h1>
+    <p class="sub">检索方案设计与检索问题诊断</p>
+    <p class="lede">
+      源自钟澄《科研论》的检索经验：<strong>鲸吞法</strong>先吞后吐、<strong>概念拆分到最小单元</strong>、
+      <strong>万能检索式</strong>行内 OR 行间 AND、<strong>小步进实测</strong>、<strong>完成比完美</strong>。
+      它解决的不是"用哪个数据库"，而是"搜什么、怎么构造、怎么判断够不够"。
+    </p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/marxchen7/zhongcheng-literature-search">在 GitHub 上查看</a>
+      <a class="btn" href="#install">安装方法</a>
+      <a class="btn" href="#evidence">TDD 证据</a>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- 1 -->
+  <section>
+    <h2><span class="num">01</span>万能检索式</h2>
+    <p class="note">整套方法的地基。括号的含义是"这些词出现在搜索引擎的同一行"——中英文引擎都是这样。</p>
+    <div class="formula">
+      <div class="frow">
+        <span class="brace">(</span>
+        <div class="fgroup">
+          <span class="fterm a">A1</span><span class="op or">OR</span><span class="fterm a">A2</span><span class="op or">OR</span><span class="fterm a">A3</span>
+        </div>
+        <span class="brace">)</span>
+        <span class="op and">AND</span>
+        <span class="brace">(</span>
+        <div class="fgroup">
+          <span class="fterm b">B1</span><span class="op or">OR</span><span class="fterm b">B2</span><span class="op or">OR</span><span class="fterm b">B3</span>
+        </div>
+        <span class="brace">)</span>
+      </div>
+      <div class="legend">
+        <span><b class="or">OR</b> —— 行内，只连同一个检索词的同义表达</span>
+        <span><b class="and">AND</b> —— 行间，只连不同的检索词</span>
+      </div>
+    </div>
+    <div style="margin-top:18px">
+      <blockquote><p>「所以我强烈建议采用我说的这种简单的检索式，我自己测试了几个检索案例，全都是适合这种模式的。」</p></blockquote>
+    </div>
+    <div style="margin-top:18px" class="grid two">
+      <div class="pcard">
+        <h3><span class="k">为什么</span>一行里不得同时出现 AND 和 OR</h3>
+        <p>检索式逻辑一复杂，搜太多或搜不到时你无法判断是哪一部分的问题。简单结构让每一轮测试只改一个变量，问题立刻可定位。</p>
+      </div>
+      <div class="pcard">
+        <h3><span class="k">演进</span>不一次性交付成品</h3>
+        <p><code>A</code> → <code>A AND B</code> → <code>A AND (A1 OR A2) AND (B1 OR B2)</code>。和写程序一样：一次不要码太多代码，出问题才能马上排查。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section>
+    <h2><span class="num">02</span>五条原则</h2>
+    <p class="note">检索式设置属于搜商，是后续一切工作的起点。总耗时最多一天；因"差不多不就行了"导致检索式不完善，后期浪费的时间以年计。</p>
+    <div class="grid">
+      <div class="pcard">
+        <h3><span class="k">一</span>鲸吞法：先吞后吐</h3>
+        <p>第一轮尽可能囊括相关文献，精准靠<strong>分组</strong>解决，不靠第一轮提纯。筛选标准、纳入排除标准属于【吐】，必须后置于分组。</p>
+      </div>
+      <div class="pcard">
+        <h3><span class="k">二</span>概念拆分到最小单元</h3>
+        <p>作者研究 A 却从不提及 A——研究甲基铵铅碘的论文标题里没有 perovskite。拆开后只需掌握每个<strong>单元</strong>的同义表达，不必掌握组合后词组的同义表达。</p>
+      </div>
+      <div class="pcard">
+        <h3><span class="k">三</span>万能检索式</h3>
+        <p><code>(A1 OR A2) AND (B1 OR B2)</code>，行内只用 OR，行间只用 AND。</p>
+      </div>
+      <div class="pcard">
+        <h3><span class="k">四</span>小步进实测</h3>
+        <p>先测 A → 过多则 A AND B → 再逐步扩充同义表达。每个候选词组都回引擎测量级，不凭直译想当然。</p>
+      </div>
+      <div class="pcard">
+        <h3><span class="k">五</span>完成比完美</h3>
+        <p>90%+ 覆盖即启动；但也不因少量文献就开始研究——基于少量文献开展研究，未来走一年以上弯路并不稀奇。</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section>
+    <h2><span class="num">03</span>"够用"的判据</h2>
+    <p class="note">用户说"文献看不完 / 不够"时，先问是哪个用途不够，再对上表。对上表能解决的，不需要任何新检索。</p>
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>用途</th><th>篇数</th></tr></thead>
+        <tbody>
+          <tr><td>形成语料库、完成写作</td><td class="num">15~20 篇</td></tr>
+          <tr><td>写作文字素材库</td><td class="num">≤ 50 篇</td></tr>
+          <tr><td>【验】字诀验证 idea</td><td class="num">几篇~十几篇</td></tr>
+          <tr><td>初步往下推进</td><td class="num">&gt; 50~100 篇</td></tr>
+          <tr><td>不必穷尽浏览</td><td class="num">&gt; 1000 篇</td></tr>
+          <tr><td>启动相关度 / 覆盖度</td><td class="num">&gt;40% / 90%+</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:18px">
+      <blockquote><p>「鲸吞 ≠ 吃完。只要有适当的样本量已经可以反映全局特点了，在样本量过大的情况下，我们没必要穷尽索引每一个样本……只要能吃饱（也就是达成我们的目的）就行了。」</p></blockquote>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section>
+    <h2><span class="num">04</span>八条铁律</h2>
+    <p class="note">前五条管检索式，后三条管"什么不能外包给工具"。</p>
+    <ol class="rules">
+      <li><b>行内只用 OR，行间只用 AND</b>，一行里不得同时出现两者。</li>
+      <li><b>所有符号半角</b>——通配符、双引号、括号。</li>
+      <li><b>先吞后吐。</b>筛选标准、纳入排除标准是【吐】，必须后置于分组。</li>
+      <li><b>小步进。</b>不一次性交付成品检索式；每轮只改一个变量并记录命中数。</li>
+      <li><b>形成记录。</b>每个检索式都留下 <code>序号-数据库 | 完整检索式 日期</code>。</li>
+      <li><b>不用 AI 批量摘要替代分组。</b>分组中的判断正是 idea 来源；"能分出组"和"能分出为你后续研究和论文发表提供参考的分组"是完全不同的概念。</li>
+      <li><b>不用词频统计 / 共现网络工具</b>（VOSviewer、CiteSpace、biblioshiny）代替人工分组。它们搜不到 <code>@</code>、<code>like</code>、<code>nano</code> 这类关键符号与词干，且会把同义表达割裂成不同组。</li>
+      <li><b>开展具体工作前必做钓鱼法测试</b>——确认没有与 idea 完全重合的报道。</li>
+    </ol>
+  </section>
+
+  <!-- 5 -->
+  <section>
+    <h2><span class="num">05</span>两个模式</h2>
+    <p class="note">同一个 skill，两条入口。都通向：入库 → 分组 → 查漏。</p>
+    <div class="grid two">
+      <div class="pcard">
+        <h3>设计模式 · 8 步</h3>
+        <p>① 明确终点（出 idea / 验证 idea / 写作素材）② 概念拆分到最小单元 ③ 同义表达四渠道 ④ 组装万能检索式 ⑤ 小步进实测 ⑥ 入库与形成记录 ⑦ 分组规划 ⑧ 查漏与推进阈值。</p>
+      </div>
+      <div class="pcard">
+        <h3>诊断模式 · 7 问</h3>
+        <p>① 相关度（&gt;40% 即启动）② 检索式结构 ③ 同义表达在穷尽还是已保留最小单元 ④ 符号半角 / TOPIC 误写成 TITLE ⑤ 字段策略 ⑥ 单侧命中数量级 ⑦ 下一轮只改一个变量。</p>
+      </div>
+    </div>
+    <div style="margin-top:18px" class="tblwrap">
+      <table>
+        <thead><tr><th>症状</th><th>根因</th><th>处方</th></tr></thead>
+        <tbody>
+          <tr><td>结果太多</td><td>行内 AND 行间 OR 混杂；缺限定词</td><td>简化为 <code>(A) AND (B)</code>；删除测试</td></tr>
+          <tr><td>结果太少或 0</td><td>直译词；同义表达缺失；全角符号</td><td>四渠道补表达；每个词组回引擎测量级</td></tr>
+          <tr><td>一半不相关</td><td><strong>这是正常的，不是缺陷</strong></td><td>&gt;40% 即启动，靠分组求值</td></tr>
+          <tr><td>同义词永远穷尽不完</td><td>穷尽思维</td><td>保留最小单元 + 启动支点论 + 增量更新</td></tr>
+          <tr><td>4000 篇看不完</td><td>缺分组，不是缺速度</td><td>鲸吞法分组路线 + 阈值表</td></tr>
+          <tr><td>搜不到，怀疑是空白</td><td>检索词选错（该搜 B 不是 A）</td><td>先怀疑检索词；单侧命中数验证法</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- 6 -->
+  <section>
+    <h2><span class="num">06</span>六份参考资料</h2>
+    <p class="note">SKILL.md 只做路由与判定，全部细节在这六份里。每份 &lt; 500 行，按需加载。</p>
+    <div class="grid">
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/search-formula.md">
+        <span class="fn">references/search-formula.md</span>
+        <span class="fd">概念拆分、同义四渠道、万能检索式、符号规则、字段阶梯、实测校验、删除测试、化学式与特殊形式</span>
+      </a>
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/library-building.md">
+        <span class="fn">references/library-building.md</span>
+        <span class="fd">WoS / Scopus 导出、EndNote 导入（ISI-CE）、去重、形成记录、增量更新与跟踪服务</span>
+      </a>
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/grouping-triage.md">
+        <span class="fn">references/grouping-triage.md</span>
+        <span class="fd">一 / 二 / 三次分组、组集、中转组、检索词提炼 8 规则、非排他标签化、逐一浏览未分类</span>
+      </a>
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/completeness.md">
+        <span class="fn">references/completeness.md</span>
+        <span class="fd">查漏八机制、启动支点论、删除精简保留最小单元、钓鱼法兜底、阈值表、假查全</span>
+      </a>
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/cases-and-diagnosis.md">
+        <span class="fn">references/cases-and-diagnosis.md</span>
+        <span class="fd">八个检索案例速查（含真实命中量级）、三个跨领域病例、12 行诊断库、17 条警示语原文</span>
+      </a>
+      <a class="file" href="https://github.com/marxchen7/zhongcheng-literature-search/blob/main/references/database-syntax.md">
+        <span class="fn">references/database-syntax.md</span>
+        <span class="fd">WoS / Scopus / CNKI 字段与运算符、语法自检清单、本环境可达性实测</span>
+      </a>
+    </div>
+  </section>
+
+  <!-- 7 -->
+  <section id="evidence">
+    <h2><span class="num">07</span>它是被测试逼出来的</h2>
+    <p class="note">按 writing-skills 的 TDD 纪律开发：先写压力场景 → 无 skill 跑 RED 基线 → 带 skill 跑 GREEN → 从 GREEN 结果反推缺口做 REFACTOR。</p>
+
+    <div class="scoreboard">
+      <div class="score red">
+        <span class="big">1 / 15</span>
+        <span class="lbl">RED 基线通过（无 skill）</span>
+      </div>
+      <div class="arrow">→</div>
+      <div class="score green">
+        <span class="big">15 / 15</span>
+        <span class="lbl">GREEN 通过（带 skill，首轮）</span>
+      </div>
+    </div>
+
+    <div class="tblwrap">
+      <table>
+        <thead><tr><th>场景</th><th>压力</th><th>RED 失败模式</th><th>GREEN</th></tr></thead>
+        <tbody>
+          <tr>
+            <td>S1 设计</td>
+            <td>无检索基础 + 时间压力 + 导师催</td>
+            <td>堆词组 + 综述方法论：查准率 / 召回率 / PRISMA-ScR 漏斗 / 引文滚雪球 / 核心作者核心期刊清单</td>
+            <td class="num">6/6</td>
+          </tr>
+          <tr>
+            <td>S2 诊断</td>
+            <td>同义词穷尽焦虑 + 结果过载 + AI 摘要诱惑</td>
+            <td>开头两句是对的，随后滑回"查准率崩塌 / 特异性 0.5 / 种子论文测召回"，并给出"六条可辩护协议"给 AI 开 conditional 许可</td>
+            <td class="num">5/5</td>
+          </tr>
+          <tr>
+            <td>S3 边界</td>
+            <td>文献过载 + 导师催 + AI 捷径诱惑</td>
+            <td>改述为"漏斗"，先提筛选标准，主方案是 VOSviewer / CiteSpace 领域结构图 + Elicit / Consensus / Litmaps 批量摘要</td>
+            <td class="num">4/4</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:22px">
+      <blockquote><p>三个场景的失败模式互不相同，说明这是通用默认行为与钟澄方法的系统性差异，不是偶发失误——所以这个 skill 有存在的必要。</p></blockquote>
+    </div>
+
+    <div style="margin-top:22px">
+      <p class="note" style="margin-bottom:10px">REFACTOR 阶段从 GREEN 结果里反向发现并关闭了一个真实缺口：</p>
+      <div class="pcard">
+        <h3><span class="k">缺口</span>由多种材料组成的器件名是一个单元，不能拆成组成元素</h3>
+        <p>
+          skill 原文只说"拆到最小单元"，没有明确说锌镍电池 / 镍氢电池不可拆成 <code>zinc OR nickel</code>。
+          用户完全可能据"拆到最小单元"四字而误拆——而这是"结果一半不相关 + 标题看不懂"最常见的单一根因。
+          修补依据全部来自原材料：<code>lithium ion batter*</code> 在锂电案例里是作为一整个检索词测的（标题 34,018 条），
+          钙钛矿案例里"光催化"也不拆成"光 / 催化"。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 8 -->
+  <section id="install">
+    <h2><span class="num">08</span>安装</h2>
+    <p class="note">仓库根目录即 skill 根目录，克隆后软链到 <code>~/.claude/skills/</code> 即可被 Claude Code 发现。</p>
+<pre><span class="c"># 1. 克隆到任意位置</span>
+git clone https://github.com/marxchen7/zhongcheng-literature-search.git
+
+<span class="c"># 2. 软链（Windows 用管理员 PowerShell）</span>
+<span class="k">New-Item</span> -ItemType SymbolicLink `
+  -Path <span class="s">"$env:USERPROFILE\.claude\skills\zhongcheng-literature-search"</span> `
+  -Target <span class="s">"F:\code\zhongcheng-literature-search"</span>
+
+<span class="c"># macOS / Linux</span>
+ln -s ~/code/zhongcheng-literature-search ~/.claude/skills/zhongcheng-literature-search</pre>
+    <div style="margin-top:18px">
+      <blockquote><p>装好后直接提问即可触发，例如："我在写硕士论文，方向是中国钢铁行业低碳转型的政策工具组合与实施顺序，请帮我设计一套 Web of Science 的检索方案。"</p></blockquote>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>方法源自钟澄《科研论》。本仓库是对其文献检索部分的结构化整理与可执行化，案例中的命中量级与原文引述均取自原书。</p>
+    <p>仓库：<a href="https://github.com/marxchen7/zhongcheng-literature-search">github.com/marxchen7/zhongcheng-literature-search</a></p>
+  </div>
+</footer>
+
+</body>
+</html>
